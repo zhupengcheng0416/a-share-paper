@@ -1,0 +1,1 @@
+2026-10-03：富途OAuth授权完成，当前scope为quote:read。Cloudflare服务器端令牌刷新及A股模拟账户列表读取已实测成功，市场ID以真实账户返回为准，当前A股账户为3。令牌仅保存在本机DPAPI密文与Cloudflare加密secret；交付包没有令牌或账户ID。尚未验证资产、持仓、全市场历史行情及任何模拟订单写操作。直接REST路线无需OpenD和LinuxVM。三项目接入及后续步骤见ARCHITECTURE.md。

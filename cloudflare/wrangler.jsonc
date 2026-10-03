@@ -1,0 +1,10 @@
+{
+  "name":"a-share-paper-control",
+  "account_id":"f8f56846953963e859207cd980a9d71e",
+  "main":"worker.mjs",
+  "compatibility_date":"2026-10-03",
+  "workers_dev":true,
+  "preview_urls":false,
+  "keep_vars":true,
+  "observability":{"enabled":true,"logs":{"enabled":true,"invocation_logs":false}}
+}

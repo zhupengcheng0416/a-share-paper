@@ -1,0 +1,47 @@
+{
+  "environment": "SIMULATE",
+  "source": "Futu REST via Cloudflare",
+  "scope": "quote:read",
+  "accounts": [
+    {
+      "market_id": 100,
+      "account_title": "美股融资融券模拟账户"
+    },
+    {
+      "market_id": 1,
+      "account_title": "港股模拟账户"
+    },
+    {
+      "market_id": 16,
+      "account_title": "日股模拟账户"
+    },
+    {
+      "market_id": 9,
+      "account_title": "港股期权模拟账户"
+    },
+    {
+      "market_id": 10,
+      "account_title": "香港期货模拟账户"
+    },
+    {
+      "market_id": 11,
+      "account_title": "美国期货模拟账户"
+    },
+    {
+      "market_id": 13,
+      "account_title": "日本期货模拟账户"
+    },
+    {
+      "market_id": 3,
+      "account_title": "A股模拟账户"
+    },
+    {
+      "market_id": 12,
+      "account_title": "新加坡期货模拟账户"
+    }
+  ],
+  "a_share_account_present": true,
+  "trading_enabled": false,
+  "orders_submitted": 0,
+  "http_status": 200
+}

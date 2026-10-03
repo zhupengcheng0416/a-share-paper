@@ -1,0 +1,23 @@
+{
+  "version":"draft-v0.1.0",
+  "environment":"SIMULATE",
+  "auto_submit":false,
+  "parameters_approved":false,
+  "market_cap_max_cny":7000000000,
+  "tech_industries":["半导体","电子元件","软件开发","计算机设备","通信设备"],
+  "min_listing_days":180,
+  "min_avg_turnover_cny":20000000,
+  "min_roe":0.05,
+  "max_atr_fraction":0.08,
+  "volume_ratio_entry":1.5,
+  "max_position_fraction":0.05,
+  "risk_per_trade":0.005,
+  "max_positions":10,
+  "max_orders_per_day":10,
+  "daily_loss_limit":0.02,
+  "drawdown_limit":0.10,
+  "atr_stop_multiple":2,
+  "max_spread_fraction":0.005,
+  "quote_max_age_seconds":30,
+  "recipient":"zhupengcheng0416@163.com"
+}

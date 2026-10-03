@@ -1,0 +1,22 @@
+[Unit]
+Description=A-share simulation preflight API
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=paper
+WorkingDirectory=/opt/a-share-paper
+EnvironmentFile=/etc/a-share-paper.env
+ExecStart=/opt/a-share-paper/.venv/bin/python -m paper.service serve
+Restart=on-failure
+RestartSec=10
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/a-share-paper/state
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

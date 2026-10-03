@@ -1,0 +1,28 @@
+{
+  "date": "2026-10-03",
+  "timezone": "Asia/Shanghai",
+  "phase": "three_project_research_integrated",
+  "cloudflare_url": "https://a-share-paper-control.zhupengcheng0416.workers.dev",
+  "cloudflare_version": "15dc394d-d673-450f-9b45-217fa1bca6de",
+  "python_tests_passed": 17,
+  "worker_checks_passed": 8,
+  "futu_cloud_readonly_connected": true,
+  "futu_scope": "quote:read",
+  "a_share_sim_account_verified": true,
+  "live_data_connected": false,
+  "mail_connected": false,
+  "execution_enabled": false,
+  "orders_submitted": 0,
+  "budget_cny": 0,
+  "paid_services_allowed": false,
+  "github_owned_repositories_available": 0,
+  "research_integration": "verified_on_synthetic_fixtures",
+  "pending": [
+    "owned GitHub public repository",
+    "point-in-time full-market data and free quota verification",
+    "strategy backtest and parameters",
+    "EXIT and order lifecycle",
+    "mail delivery",
+    "simulation trading permissions and dry run"
+  ]
+}
