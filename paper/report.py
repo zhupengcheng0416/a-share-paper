@@ -109,14 +109,16 @@ class DeliveryLedger:
         if self.sha:data['sha']=self.sha
         r=self.request(data);self.sha=r['content']['sha']
 
-def send(report,body,kind='market'):
-    subjects={'market':'A股市场技术分析','weekly_backtest':'A股周度回测反馈','monthly_backtest':'A股月度回测反馈','quarterly_backtest':'A股季度回测反馈'}
+def send(report,body,kind='market',test_id=None):
+    subjects={'market':'A股市场技术分析','selection_test':'【测试】A股选股与买点止盈止损','weekly_backtest':'A股周度回测反馈','monthly_backtest':'A股月度回测反馈','quarterly_backtest':'A股季度回测反馈'}
     if kind not in subjects:raise ValueError('unsupported report kind')
+    if kind=='selection_test' and (not isinstance(test_id,str) or not test_id.isdigit()):raise ValueError('explicit test run id required')
     recipient=load_config()['recipient'];sender=os.environ.get('MAIL_SMTP_USER','')
     if recipient!='zhupengcheng0416@163.com' or sender!=recipient:raise ValueError('fixed mailbox mismatch')
     password=os.environ.get('MAIL_SMTP_PASSWORD','')
     if not password:raise ValueError('SMTP authorization not configured')
-    key=hashlib.sha256((kind+'-v1|'+report['session']).encode()).hexdigest()[:24];ledger=DeliveryLedger(key)
+    identity=kind+'-v1|'+report['session']+('|' + test_id if kind=='selection_test' else '')
+    key=hashlib.sha256(identity.encode()).hexdigest()[:24];ledger=DeliveryLedger(key)
     previous=ledger.current()
     if previous and previous['state'] in ('PENDING','SENT','UNCERTAIN'):
         return {'mail_status':'deduplicated_'+previous['state'],'session':report['session']}
@@ -140,9 +142,17 @@ def send(report,body,kind='market'):
     return {'mail_status':'smtp_accepted','session':report['session'],'message_id':status['message_id'],'inbox_delivery':'not_independently_verified'}
 
 def main():
-    p=argparse.ArgumentParser();p.add_argument('--input',required=True);p.add_argument('--html',default='state/market-report.html');p.add_argument('--send',action='store_true');args=p.parse_args()
+    p=argparse.ArgumentParser();p.add_argument('--input',required=True);p.add_argument('--html',default='state/market-report.html');p.add_argument('--send',action='store_true');p.add_argument('--test-id');args=p.parse_args()
     report=json.loads(Path(args.input).read_text(encoding='utf-8'));body=render(report);Path(args.html).parent.mkdir(parents=True,exist_ok=True);Path(args.html).write_text(body,encoding='utf-8')
-    result=send(report,body) if args.send else {'mail_status':'rendered_not_sent'}
+    if args.test_id:
+        stocks={s['code']:s for s in report['input_stocks']}
+        plans=[dict(code=r['code'],name=r['name'],**reference_levels(stocks[r['code']],r)) for r in report['results']]
+        valid=[p for p in plans if p['status']=='CONDITIONAL']
+        banner=f'<p><strong>用户主动请求的测试邮件</strong>：行情日期{html.escape(report["session"])}；条件方案{len(valid)}只。未满足技术条件的股票仅列观察，不强设价位。仅用于检查选股报告和邮件通道，不下单。</p>'
+        body=body.replace('<h1>',banner+'<h1>',1)
+        Path(args.html).write_text(body,encoding='utf-8')
+        print(json.dumps({'test_plan_count':len(valid),'conditional_plans':valid},ensure_ascii=False))
+    result=send(report,body,'selection_test',args.test_id) if args.send and args.test_id else send(report,body) if args.send else {'mail_status':'rendered_not_sent'}
     Path('state').mkdir(parents=True,exist_ok=True)
-    Path('state/mail-status.json').write_text(json.dumps(result),encoding='utf-8');print(json.dumps(result))
+    Path('state/selection-test-status.json' if args.test_id else 'state/mail-status.json').write_text(json.dumps(result),encoding='utf-8');print(json.dumps(result))
 if __name__=='__main__':main()

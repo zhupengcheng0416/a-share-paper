@@ -4,6 +4,11 @@ on:
     branches: [main]
     paths: ['paper/**', 'cloudflare/market-data.mjs', '.github/workflows/market.yml']
   workflow_dispatch:
+    inputs:
+      send_test:
+        description: 'Send one explicitly requested selection test email'
+        type: boolean
+        default: false
   schedule:
     - cron: '35 8 * * 1-5'
     - cron: '50 8 1 * *'
@@ -38,6 +43,14 @@ jobs:
           MAIL_SMTP_PASSWORD: ${{ secrets.MAIL_SMTP_PASSWORD }}
           GITHUB_TOKEN: ${{ github.token }}
         run: python -m paper.report --input state/real-market-report.json --send
+      - name: Explicit selection test email
+        if: ${{ inputs.send_test == true || (github.event_name == 'push' && contains(github.event.head_commit.message, '[send selection test]')) }}
+        env:
+          MAIL_SMTP_USER: ${{ secrets.MAIL_SMTP_USER }}
+          MAIL_SMTP_PASSWORD: ${{ secrets.MAIL_SMTP_PASSWORD }}
+          GITHUB_TOKEN: ${{ github.token }}
+          SELECTION_TEST_RUN_ID: ${{ github.run_id }}
+        run: python -m paper.report --input state/real-market-report.json --html state/selection-test.html --test-id "$SELECTION_TEST_RUN_ID" --send
       - name: Archive frozen plans actually sent
         env:
           GITHUB_TOKEN: ${{ github.token }}

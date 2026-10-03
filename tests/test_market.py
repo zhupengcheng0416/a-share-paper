@@ -80,5 +80,21 @@ class MarketTests(unittest.TestCase):
         from unittest.mock import patch
         with patch.dict('os.environ',{'MAIL_SMTP_USER':'other@example.com'}):
             with self.assertRaises(ValueError):send({},'irrelevant')
+    def test_explicit_selection_test_is_separate_and_retry_deduplicated(self):
+        from paper.report import send
+        from unittest.mock import patch,MagicMock
+        report={'session':'2026-09-30'}
+        with self.assertRaises(ValueError):send(report,'test','selection_test')
+        with patch.dict('os.environ',{'MAIL_SMTP_USER':'zhupengcheng0416@163.com','MAIL_SMTP_PASSWORD':'test'}),patch('paper.report.DeliveryLedger') as ledger,patch('paper.report.smtplib.SMTP_SSL') as smtp:
+            ledger.return_value.current.return_value=None
+            smtp.return_value.__enter__.return_value.send_message.return_value={}
+            result=send(report,'<p>test</p>','selection_test','123')
+            self.assertEqual(result['mail_status'],'smtp_accepted')
+            msg=smtp.return_value.__enter__.return_value.send_message.call_args.args[0]
+            self.assertIn('【测试】',msg['Subject'])
+            self.assertEqual(msg['To'],'zhupengcheng0416@163.com')
+            ledger.return_value.current.return_value={'state':'SENT'}
+            self.assertEqual(send(report,'test','selection_test','123')['mail_status'],'deduplicated_SENT')
+            self.assertEqual(smtp.call_count,1)
 
 if __name__=='__main__':unittest.main()
