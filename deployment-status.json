@@ -4,7 +4,7 @@
   "phase": "real_market_email_verified",
   "mode": "ANALYSIS_ONLY",
   "cloudflare_url": "https://a-share-paper-control.zhupengcheng0416.workers.dev",
-  "python_tests_passed": 40,
+  "python_tests_passed": 43,
   "worker_checks_passed": 23,
   "futu_scope": "quote:read",
   "live_data_connected": true,
@@ -26,14 +26,14 @@
   "full_market_technical_scan": false,
   "schedule_beijing": "Weekdays 16:35; GitHub scheduling can be delayed; one mail per completed session",
   "github_actions_run": "https://github.com/zhupengcheng0416/a-share-paper/actions/runs/37131652621",
-  "verification_run": "https://github.com/zhupengcheng0416/a-share-paper/actions/runs/37132247284",
+  "verification_run": "https://github.com/zhupengcheng0416/a-share-paper/actions/runs/37133917670",
   "github_verified_commit": "9917a6483680648be5710e3e554910009a266064",
   "pending": [
     "industry and technology pool validation",
     "ROE and public filing date coverage",
     "point-in-time backtest and independently validated factor model"
   ],
-  "cloudflare_version": "84ea3de1-8632-49a9-b4af-d66753cc0bb7",
+  "cloudflare_version": "d051fe3b-ab5c-4e74-bbab-19513308e79e",
   "conditional_price_levels": {
     "enabled": true,
     "scope": "each detailed stock; missing/weak/insufficient reward -> OBSERVE",
@@ -50,6 +50,13 @@
     "quarterly": "previous quarter, quarter start",
     "monthly_schedule_beijing": "Day 1 at 16:50, weekday catch-up",
     "historical_archive_before_deployment": false,
-    "portfolio_returns_available": false
+    "portfolio_returns_available": false,
+    "first_reports": {
+      "2026-09": "smtp_accepted; no historical plan samples",
+      "2026-Q3": "smtp_accepted; no historical plan samples"
+    },
+    "verified_commit": "dd8d34cade4ef2bcfd30080b22858450a08cec65",
+    "cloud_run": "https://github.com/zhupengcheng0416/a-share-paper/actions/runs/37133917679",
+    "deduplication_verified": true
   }
 }
