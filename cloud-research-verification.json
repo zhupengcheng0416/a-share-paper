@@ -1,52 +1,9 @@
 {
-  "run_id": 37128995299,
-  "url": "https://github.com/zhupengcheng0416/a-share-paper/actions/runs/37128995299",
-  "commit": "a390d44c67331c68aaed01809050cda697ecdc5b",
-  "jobs": [
-    {
-      "id": 111220113394,
-      "name": "verify",
-      "status": "completed",
-      "conclusion": "success",
-      "runner_name": "GitHub Actions 1000000000",
-      "steps": [
-        {
-          "name": "Set up job",
-          "conclusion": "success"
-        },
-        {
-          "name": "Run actions/checkout@v4",
-          "conclusion": "success"
-        },
-        {
-          "name": "Run actions/setup-python@v5",
-          "conclusion": "success"
-        },
-        {
-          "name": "CPU dependencies",
-          "conclusion": "success"
-        },
-        {
-          "name": "Verify pinned integrations and simulation gates",
-          "conclusion": "success"
-        },
-        {
-          "name": "State tested scope",
-          "conclusion": "success"
-        },
-        {
-          "name": "Post Run actions/setup-python@v5",
-          "conclusion": "success"
-        },
-        {
-          "name": "Post Run actions/checkout@v4",
-          "conclusion": "success"
-        },
-        {
-          "name": "Complete job",
-          "conclusion": "success"
-        }
-      ]
-    }
-  ]
+  "python_tests": 22,
+  "node_checks": 23,
+  "result": "success",
+  "verification_run": "https://github.com/zhupengcheng0416/a-share-paper/actions/runs/37131652603",
+  "real_market_email_run": "https://github.com/zhupengcheng0416/a-share-paper/actions/runs/37131652621",
+  "mail_status": "smtp_accepted",
+  "session": "2026-09-30"
 }

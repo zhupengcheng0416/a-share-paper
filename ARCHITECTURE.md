@@ -1,47 +1,13 @@
-# ����Ŀ����������ò���
+# 免费云端研究架构
 
-����·��ʱ��һ�µ������� A ������/Ԫ���� �� ������Ʊ�� �� V3 ֧������ + AlphaMaster ����/��ʽ + PA_Agent �͹۽ṹ��ʵ �� �̶����������Ԥ�� �� ���߿��� �� ��;ģ�ⶩ���������� �� �ʼ�������
+Cloudflare Workers只处理鉴权与富途只读行情中转。富途刷新令牌保存在Cloudflare加密Secrets。GitHub Actions通过短期OIDC证明指定仓库、不可变仓库ID、main分支及market.yml工作流身份；不向GitHub复制富途令牌。
 
-## ʵ�ʽ��������ģ��
+Python运行于公开仓库标准Ubuntu runner，20分钟超时，不上传artifact或建立收费资源。读取沪深A股选股取值，并对70亿元以内候选中市值最大的20只读取两年历史日线；北交所和非A股证券排除。校验日期、已收盘数据、覆盖、单位和价格一致性。
 
-| ��Ŀ | �������� | ��ǰ��֤��Χ |
-|---|---|---|
-| Detect_support_and_resistance_levels | ԭ�� SREngine/V3Fusion��ATR��������ᡢ�ɽ������� | 320���ϳ����߼�⣻����ֲδ��֤��ʤ�ʱ궨�ļ� |
-| AlphaMaster | ԭ��65���������ʱ��汾��StackVM�����빫ʽִ�� | ���ǰ׺���ԣ�CPU�н�����������ѵ��/��֤/�������Էֶ� |
-| PA_Agent | ԭ�������̿��ա�EMA/ATR��K�߼��Ρ��г��ṹ������ʵ | �޽������У�����͹����ݽ��룻LLM����0�� |
+V3Fusion给出支撑阻力，AlphaMaster计算65个特征，PA_Agent计算客观价格结构。MA20/MA60和60日涨幅用于固定技术判断。没有LLM调用。缺失财务数据不会当作合格；最新前复权不能用于时点回测，未冻结模型不产生模型评分。
 
-`upstream-lock.json` �̶������ύ��ÿ����Դ�ļ� SHA256����ѡԴ�뼰ԭʼ����֤������ `vendor/`��PA_Agent ���߰���һ����¼�����޸ģ�EventBus ��Ϊ���赼�룬�����ƶ˼������ Qt���������Դ��δ�޸ġ�����Դ���湤�������ṩ������������ GPL/AGPL ����֤��
+SMTP使用163的TLS服务，邮箱固定为用户本人。GitHub加密Secret提供发信地址和SMTP授权码，临时GITHUB_TOKEN仅用于投递状态记录。`.delivery/`只记录交易日、邮件ID和状态。先写PENDING再发送；SENT/PENDING/UNCERTAIN阻止盲目重试。认证或收件人拒绝可安全修复后重试；连接中断导致投递不确定时需核实，不重复发送。
 
-`paper/integrations.py` ֧������������SQLite��������/����������������ʹ��ԭ�����ļ�Э�飻����Ҫ������260���������ߡ�ÿ�� `closed:true`��`adjust_mode` Ϊ `hfq_point_in_time` �� `qfq_asof_session`�������ھ�����������������ʵ����֤���ֶα�ǩ���ܴ������ݺ��顣��ֹ����ǰǰ��Ȩ������Ϊ��ʷʱ��ز����ݡ�
+工作日北京时间16:35执行，定时任务可能延迟；休市重复同一交易日不重复发送。自动交易与券商写入均关闭。
 
-`paper/mining.py` �ṩ���CPU�н�������ʹ���������������ӣ����256����ѡ��ѵ��ɸѡǰ10����֤ѡһ������������ֻ����һ�Σ��ֶμ����5����Ŀ�����źŵ���֮��Ĵ��տ��̵�����һ�����տ������档�����Ԥ�����ϵ�������ǽ��׻ز����档��������ǿ��ѧϰѵ��������Դ�룬��δ�����ƶ�������ԭ�����/�ڻ��������۲���ֱ������A�ɡ���ǰ�����ǵ�ֻ�����Ʊ�о���δ����ȫ�г��ھ���ɡ�
-
-�����ھ����Ĭ�� `research_only`����ֹ�Զ�����Ϊ�ɽ���ģ�͡���ȡ��ʽ�˶Դʱ��������ύ���������ڣ�ȱʧģ������ʾ65�����Ѽ��㣬��û��ģ���źš�����ɨ���ԭ���� ENTRY ��¼Ϊ `base_signal`���о��׶���� WATCH����ֹ��δ�ز�ĸ�������ֱ�ӽ���ȯ��ִ�С�
-
-## �������
-
-�ڹ��̸�Ŀ¼��Python3.12 CPU������
-
-```text
-python -m pip install torch==2.8.0 --index-url https://download.pytorch.org/whl/cpu
-python -m pip install -r requirements-research.txt
-python -m unittest discover -s tests -v
-node tests/test_worker.mjs
-python -m paper.integrations --input validated-session.json --output state/report.json
-python -m paper.mining --input one-symbol-history.json --output state/research-factor.json --limit 192
-```
-
-������������700����Ч���ߡ������������ļ�ʱ����ʧ�ܣ������Զ����ϳ����顣�ϳ�����ֻ���ڲ��Դ����ڡ�
-
-## ����ƶ˲��
-
-- Cloudflare Workers��״̬����ҳ����Ȩ�븻; REST ֻ�����ӡ��ƶ�ˢ�����ƺͶ�ȡA��ģ���˻���ʵ��ɹ�����ǰ��Ȩ�� `quote:read`��û���µ���֤��
-- GitHub Actions�������˹����ֿ��׼ Ubuntu runner ������/�ֶ���֤���������̶�20���ӳ�ʱ���޸���ģ�͡��޴���runner���޻����artifact�ϴ��������ֿ��׼runner������ѣ����вֿ� https://github.com/zhupengcheng0416/a-share-paper �����ߣ��״α�׼Ubuntu������֤�ɹ������м�¼��cloud-research-verification.json���ٷ����ݣ�https://docs.github.com/en/billing/concepts/product-billing/github-actions
-- ����PyTorch��Python֧���������治��ֱ������ͨWorkers���С�Workers���ƣ�https://developers.cloudflare.com/workers/platform/limits/
-- ������顢�Ʊ��������ڡ���ҵ/��ֵ��ʷ����������飬�������շ����鲹�롣�����г������ʱ������δʵ�⣬��Ԥ��ʱ��ͣ��
-
-## ԭ���ܽ���״̬
-
-��ʵ�֣�˫��Ʊ�ع���ȱʧ�������ء�����ѡ�ɹ��򡢷���Ԥ��/�۶�ģ�顢������Ŀ���о����롢������������;�ƶ�ֻ�����ӡ����ϴ�������ƶ���֤��������
-
-δ��ɣ���ʵȫ�г����������븲��ͳ�ƣ����Բ���/����ز⣻A��T+1/�ǵ�ͣ/����/����������ϣ�EXIT�����ֳɽ�����߶��ˣ��ʼ�outboxͶ�ݣ�ģ�ⶩ��дȨ�޺��Զ��µ�����ʵ�г����������Ķ�ʱ�����𡣵�ǰû���κ�ģ�����ʵ�����ύ��
+源码固定版本和哈希见upstream-lock.json。PA_Agent唯一适配为按需导入EventBus，避免云端加载Qt。上游GPL/AGPL许可证随vendor源码提供。完整强化学习训练、科技股池行业验证、财务质量筛选和时点回测尚未完成。

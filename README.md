@@ -1,54 +1,35 @@
-# A������ģ���� �� ����Ŀ���ϰ�
+# 沪深 A 股云端分析与邮件
 
-���ƶˣ�https://a-share-paper-control.zhupengcheng0416.workers.dev
+用户当前目标：免费在云端读取真实市场数据、生成技术判断并发送至自己的163邮箱。排除北交所；不执行下单。
 
-2026-10-03���ѽ�����ָ��������GitHub��Ŀ�ķ���ģ�飬����GitHub��׼Ubuntu����������ƶ���֤��17��Python����+8��Worker���ȫ��ͨ��������֤��¼��https://github.com/zhupengcheng0416/a-share-paper/actions/runs/37128995299 ��Cloudflareֱ����;RESTֻ����Ȩ��A��ģ���˻���ȡ��ʵ��ɹ�����ǰû��ʵʱȫ�г����ݡ��Զ�ģ�⽻�׻��ʼ�Ͷ�ݣ�û�ж����ύ��
+## 运行链路
 
-## ԭ������ܹ�
+富途只读REST → Cloudflare加密授权中转 → GitHub Actions标准Ubuntu运行器 → 三项目研究模块 → 固定收件人SMTP邮件。
 
-- �Ƽ���������ֵ��70��Ԫ������Ʊ�أ���¼��ҵ����ֵ���Ʊ��������ڼ�������Դ��
-- �̶��汾�Ĺ�����ģ�ͣ����ô�ģ���ٳ��������ס�
-- �ų�ST��ͣ�ơ��¹ɺ͵������ԣ�ȱʧ/��Ч/δ��������ϡ�
-- ���Ԥ�㡢�ֽ�ռ�á��ظ����������۶�������SQLite���߿��ա�
-- ������SIMULATE��Ԥ��0Ԫ�������ø���ģ��/����/��������
-- ����Ŀ��Ϊ���Թػ����ƶ����У��ʼ�����zhupengcheng0416@163.com��
+`.github/workflows/market.yml` 工作日北京时间16:35运行，也可在Actions页面手动运行。GitHub定时任务可能延迟。每个交易日最多发送一封报告；休市期间重复任务不会重复发信。首次人工验证允许发送最近收盘日的报告。
 
-��ϸģ�顢����ƶ˲�֡��ӿڼ�δ������� [ARCHITECTURE.md](ARCHITECTURE.md)�����в���ֲδ��֤������ʤ�ʣ�Ҳ����ԭ�����ڻ�����߼�����A�ɽ��׻ز⡣
+筛选范围为沪深A股，剔除北交所及非A股证券。总市值≤70亿元候选中，按市值降序选择20只进行详细日线分析。全市场选股取值覆盖不等于全市场逐股技术分析。
 
-## ��ǰ�����й���
+## 研究模块
 
-`paper/integrations.py`��ԭ��V3Fusion֧��������AlphaMaster65�����붳�ṫʽ��PA_Agent������K�߿͹۽ṹ��ʵ�������о�������������о��źŲ����ύ������
+- Detect_support_and_resistance_levels：原版SREngine/V3Fusion支撑阻力和ATR。
+- AlphaMaster：65个特征及公式执行；没有通过验证的冻结挖掘模型，不输出模型选股分数。
+- PA_Agent：已收盘价格行为与市场结构事实；没有付费大模型调用。
 
-`paper/mining.py`��CPU�н�����/�������������256��ѡ��ѵ��/��֤/�����������ԷֶΣ����Ԥ�����ϵ���Ͳ��ɽ��׵��о��������ǿ��ѧϰѵ����δ���롣
+`vendor/`、`upstream-lock.json`、`LICENSE`与`NOTICE.md`保留来源、固定提交和许可证。
 
-`paper/core.py`��ԭѡ�ɹ��������Ԥ�㣻`config.json` ��ģ�ⷶΧ�������Ҫ���70��Ԫ�߽�����Ϊ���̲ݰ���δ������ز⡣
+## 数据与功能边界
 
-`cloudflare/worker.mjs`����Ȩ���ƶˡ���;�ƶ�ֻ��Ԥ�졣���Ʊ�����Cloudflare����secret�����ڽ������ڡ�
+免费可访问的选股取值和历史日线已接通。实时行情快照权限不足，未购买权限。报告使用最近完成的交易日，列出覆盖、子集与失败数据。行业、停牌标记、ROE公开日期尚未核实，科技股池及财务质量筛选尚缺。当前前复权快照只用于本次技术研究，不能当作历史时点回测数据。没有经过验证的收益或胜率结论。
 
-`.github/workflows/research.yml`����ѹ����ֿ��׼Ubuntu runner��֤���������ѷ������ɹ����У��޸���ģ�͵��á��޸���runner����artifact�ϴ���
+旧模拟交易代码保留供参考，执行始终关闭，当前不要求交易权限或OpenD服务器。预算0元，不启用收费模型、行情或runner。SMTP授权码仅存在GitHub加密Secrets，富途授权仅存在Cloudflare加密Secrets。
 
-`vendor/`��`upstream-lock.json`��`LICENSE`��`NOTICE.md`��������Դ�������ύ��Դ���ϣ������֤��һ���޽��������޸ļ�¼��
-
-## ��֤������
-
-Python3.12������Ŀ¼ִ�У�
+## 验证
 
 ```text
-python -m pip install torch==2.8.0 --index-url https://download.pytorch.org/whl/cpu
-python -m pip install -r requirements-research.txt
-python -m unittest discover -s tests -v
+python -m unittest discover -s tests
 node tests/test_worker.mjs
-python -m paper.service check
-python -m paper.integrations --input validated-session.json --output state/report.json
-python -m paper.mining --input one-symbol-history.json --output state/research-factor.json
+node tests/test_market_worker.mjs
 ```
 
-17��Python������8��Worker���ͨ��������ʹ����ȷ��ǵĺϳ����ݣ���������ʵȫ�г���ȯ�̳ɽ���֤��
-
-�������dataset_kind=completed_session��session��source��coverage��stocks��ÿֻ��Ʊ��code/name/industry/market_cap_cny/is_st/suspended/listing_days/roe/fundamental_asof/session/source/adjust_mode/bars��ÿ�����ߺ�date/open/high/low/close/volume/turnover_cny/closed����������260�����ھ�����700����fundamental_asof��Ϊ�����ɻ�����ڣ���Ȩ�ھ�����ʱ��֤�ݣ��Ӽ����ܳ�Ϊȫ�г���
-
-## ����������
-
-Դ�����ƶ���֤�Ѳ����� https://github.com/zhupengcheng0416/a-share-paper ��������ʵ������鲢��֤�����г����ǡ����Իز⡢A��T+1/�ǵ�ͣ/�ɽ����á�EXIT�붩�����ˡ��ʼ�outbox��ģ��дȨ�޼�С��ģ���ܡ�
-
-`deploy/`��`paper/futu_gateway.py` ��������Linux/OpenD������Ϊ�ο�����ǰ��Ҫ���������VM��������Oracleע��·������Ҫ·��ΪCloudflare REST���ƶ�+���Python�ƶ���������
+22项Python测试及23项Node检查在本地通过。云端实测记录与投递状态见deployment-status.json及Actions页面。SMTP接收成功不等于已独立确认收件箱到达。
