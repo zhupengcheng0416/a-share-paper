@@ -34,7 +34,7 @@ jobs:
           python -m pip install torch==2.8.0 --index-url https://download.pytorch.org/whl/cpu
           python -m pip install numpy==2.3.5 'pandas>=2.2,<3' scipy==1.18.1 pyarrow==25.0.1 jsonschema==4.26.0
       - name: Acquire real data through short-lived GitHub OIDC
-        run: python -m paper.market --output state/real-market-report.json --details 20
+        run: python -m paper.market --output state/real-market-report.json --details 60
       - name: Render report
         run: python -m paper.report --input state/real-market-report.json
       - name: Deliver fixed-recipient email

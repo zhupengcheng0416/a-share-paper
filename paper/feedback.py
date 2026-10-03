@@ -221,7 +221,9 @@ def main():
     p=argparse.ArgumentParser();p.add_argument('--archive-report');p.add_argument('--mail-status',default='state/mail-status.json');p.add_argument('--send',action='store_true');args=p.parse_args()
     Path('state').mkdir(exist_ok=True)
     if args.archive_report:
-        print(json.dumps(archive(json.loads(Path(args.archive_report).read_text(encoding='utf-8')),json.loads(Path(args.mail_status).read_text(encoding='utf-8')))));return
+        from .report import prioritize
+        report=prioritize(json.loads(Path(args.archive_report).read_text(encoding='utf-8')))
+        print(json.dumps(archive(report,json.loads(Path(args.mail_status).read_text(encoding='utf-8')))));return
     outputs=[]
     for kind,label,start,end in periods(datetime.now(ZoneInfo('Asia/Shanghai')).date()):
         # Avoid data collection and repeated SMTP calls for already processed periods.

@@ -1,6 +1,6 @@
 import copy,unittest
 from paper.market import normalized_bars,universe
-from paper.report import technical_judgment,render,reference_levels,reference_intervals,levels_html
+from paper.report import technical_judgment,render,prioritize,reference_levels,reference_intervals,levels_html
 from test_integrations import fixture
 
 class FakeClient:
@@ -8,6 +8,23 @@ class FakeClient:
     def get(self,*args,**kwargs):return next(self.pages)
 
 class MarketTests(unittest.TestCase):
+    def test_priority_mail_caps_ten_and_never_fills_with_invalid_setups(self):
+        stocks=[];results=[]
+        for i in range(12):
+            s,r=self.plan_fixture();code=f'SH.{600000+i}'
+            s.update(code=code);r.update(code=code,name=f'股票{i}')
+            stocks.append(s);results.append(r)
+        report={'session':'2026-09-30','input_stocks':stocks,'results':results}
+        selected=prioritize(report)
+        self.assertEqual(len(selected['results']),10)
+        self.assertEqual(selected['selection']['eligible_count'],12)
+        self.assertEqual(len(selected['input_stocks']),10)
+        for r in results[1:]:r['integration']['support_resistance']['zones']=[]
+        selected=prioritize(report)
+        self.assertEqual(len(selected['results']),1)
+        body=render(selected)
+        self.assertIn('止盈一区间',body);self.assertIn('止损区间',body)
+        self.assertNotIn('股票11',body);self.assertNotIn('AlphaMaster',body)
     def test_structural_intervals_do_not_promote_weak_stock_to_signal(self):
         stock,result=self.plan_fixture()
         stock['bars']=[{'close':14-i/30} for i in range(61)]

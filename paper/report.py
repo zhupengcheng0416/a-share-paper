@@ -84,7 +84,7 @@ def levels_html(plan,intervals=None):
             f"止盈二 {plan['take_profit_2']:.2f}（2R）<br>"
             f"触发：后续日线回踩支撑后收于买点区间；未触发则等待，超过上限不追买。"+extra)
 
-def render(report):
+def render_detailed(report):
     esc=lambda v:html.escape(str(v));coverage=report['coverage'];rows=[]
     benchmarks='；'.join(esc(b['name'])+'：'+(esc(b['trend'])+f"（收盘{b['last_close']:.2f}，60日{b['momentum60']:.1%}）" if 'trend' in b else '本次数据缺失') for b in report.get('benchmarks',[]))
     stocks={s['code']:s for s in report['input_stocks']}
@@ -117,6 +117,32 @@ def render(report):
 <p>来源：<a href="https://webapi.futunn.com/zh-cn/api/quote/screening/stock-screen">富途选股取值</a>；<a href="https://webapi.futunn.com/zh-cn/api/quote/basic-data/history-kline">历史日线</a>。</p>
 </body></html>'''
 
+def prioritize(report):
+    """Rank valid technical setups, not unverifiable purchase suitability."""
+    stocks={s['code']:s for s in report['input_stocks']};eligible=[]
+    for r in report['results']:
+        p=reference_levels(stocks[r['code']],r)
+        if p['status']=='CONDITIONAL':
+            eligible.append((p['risk_per_share']/p['buy_high'],abs(r['last_price']/p['buy_high']-1),r['code'],r))
+    selected=[item[-1] for item in sorted(eligible,key=lambda x:x[:3])[:10]]
+    return dict(report,results=selected,input_stocks=[stocks[r['code']] for r in selected],
+                selection={'eligible_count':len(eligible),'selected_count':len(selected),'analyzed_count':len(report['results'])})
+
+def render(report):
+    report=prioritize(report) if 'selection' not in report else report
+    stocks={s['code']:s for s in report['input_stocks']};rows=[]
+    band=lambda values:'–'.join(f'{v:.2f}' for v in values)
+    for rank,r in enumerate(report['results'],1):
+        p=reference_levels(stocks[r['code']],r);b=reference_intervals(r)
+        rows.append(f"<tr><td>{rank}</td><td>{html.escape(r['name'])}<br>{html.escape(r['code'])}</td><td>{p['buy_low']:.2f}–{p['buy_high']:.2f}</td><td>{band(b['take_profit_1_range'])}</td><td>{band(b['take_profit_2_range'])}</td><td>{band(b['stop_range'])}</td></tr>")
+    selection=report['selection']
+    return f'''<!doctype html><html lang="zh-CN"><meta charset="utf-8"><body style="font:16px system-ui;line-height:1.7;padding:20px">
+<h1>A股优先技术候选 · {html.escape(report['session'])}</h1>
+<p>详细筛选{selection['analyzed_count']}只，符合条件{selection['eligible_count']}只，本次选出{selection['selected_count']}只。价格单位：人民币元。</p>
+<table border="1" cellpadding="10" style="border-collapse:collapse"><tr><th>顺序</th><th>股票</th><th>条件买入区间</th><th>止盈一区间</th><th>止盈二区间</th><th>止损区间</th></tr>{''.join(rows)}</table>
+<p>{'暂无符合条件的股票。' if not rows else '等待后续日线回踩确认，未确认不买，超过买入上限不追涨。'}按止损距离占比、接近买入区间程度排序；这是沪深A股候选子集的技术筛选，尚缺财务及行业核验，不代表全市场最优。数据源：富途最近已收盘日线。</p>
+<p>止损区间在支撑下沿以下0.25–0.5ATR；止盈区间按入场及止损假设的1R/2R计算，端点不能任意混用。A股T+1、跳空或跌停可能影响退出。仅研究，不下单。</p></body></html>'''
+
 class DeliveryLedger:
     """Tiny delivery status in GitHub; durable PENDING before SMTP, never blind retry."""
     def __init__(self,key):
@@ -140,7 +166,7 @@ class DeliveryLedger:
         r=self.request(data);self.sha=r['content']['sha']
 
 def send(report,body,kind='market',test_id=None):
-    subjects={'market':'A股市场技术分析','selection_test':'【测试】A股选股与买点止盈止损','weekly_backtest':'A股周度回测反馈','monthly_backtest':'A股月度回测反馈','quarterly_backtest':'A股季度回测反馈'}
+    subjects={'market':'A股优先技术候选与价格区间','selection_test':'【测试】A股优先候选与买入止盈止损区间','weekly_backtest':'A股周度回测反馈','monthly_backtest':'A股月度回测反馈','quarterly_backtest':'A股季度回测反馈'}
     if kind not in subjects:raise ValueError('unsupported report kind')
     if kind=='selection_test' and (not isinstance(test_id,str) or not test_id.isdigit()):raise ValueError('explicit test run id required')
     recipient=load_config()['recipient'];sender=os.environ.get('MAIL_SMTP_USER','')
@@ -173,7 +199,7 @@ def send(report,body,kind='market',test_id=None):
 
 def main():
     p=argparse.ArgumentParser();p.add_argument('--input',required=True);p.add_argument('--html',default='state/market-report.html');p.add_argument('--send',action='store_true');p.add_argument('--test-id');args=p.parse_args()
-    report=json.loads(Path(args.input).read_text(encoding='utf-8'));body=render(report);Path(args.html).parent.mkdir(parents=True,exist_ok=True);Path(args.html).write_text(body,encoding='utf-8')
+    report=prioritize(json.loads(Path(args.input).read_text(encoding='utf-8')));body=render(report);Path(args.html).parent.mkdir(parents=True,exist_ok=True);Path(args.html).write_text(body,encoding='utf-8')
     if args.test_id:
         stocks={s['code']:s for s in report['input_stocks']}
         plans=[dict(code=r['code'],name=r['name'],**reference_levels(stocks[r['code']],r)) for r in report['results']]
