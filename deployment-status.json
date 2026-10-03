@@ -26,18 +26,21 @@
   "full_market_technical_scan": false,
   "schedule_beijing": "Weekdays 16:35; GitHub scheduling can be delayed; one mail per completed session",
   "github_actions_run": "https://github.com/zhupengcheng0416/a-share-paper/actions/runs/37131652621",
-  "verification_run": "https://github.com/zhupengcheng0416/a-share-paper/actions/runs/37131652603",
+  "verification_run": "https://github.com/zhupengcheng0416/a-share-paper/actions/runs/37132247284",
   "github_verified_commit": "9917a6483680648be5710e3e554910009a266064",
   "pending": [
     "industry and technology pool validation",
     "ROE and public filing date coverage",
     "point-in-time backtest and independently validated factor model"
   ],
-  "cloudflare_version": "7018808f-3fa6-4252-ae5c-dd2ce7b48286",
+  "cloudflare_version": "84ea3de1-8632-49a9-b4af-d66753cc0bb7",
   "conditional_price_levels": {
     "enabled": true,
     "scope": "each detailed stock; missing/weak/insufficient reward -> OBSERVE",
     "rule": "support reclaim; 0.25ATR entry buffer, 0.5ATR stop buffer, 1R/2R targets",
     "backtested": false
-  }
+  },
+  "price_levels_verified_commit": "37a77353f7215895303b14d9214d3977ee50f6c5",
+  "price_levels_cloud_run": "https://github.com/zhupengcheng0416/a-share-paper/actions/runs/37132247298",
+  "price_levels_mail_status": "deduplicated_SENT; new levels will appear in next session email"
 }

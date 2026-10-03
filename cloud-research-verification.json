@@ -1,9 +1,10 @@
 {
-  "python_tests": 22,
+  "python_tests": 27,
   "node_checks": 23,
   "result": "success",
-  "verification_run": "https://github.com/zhupengcheng0416/a-share-paper/actions/runs/37131652603",
+  "verification_run": "https://github.com/zhupengcheng0416/a-share-paper/actions/runs/37132247284",
   "real_market_email_run": "https://github.com/zhupengcheng0416/a-share-paper/actions/runs/37131652621",
   "mail_status": "smtp_accepted",
-  "session": "2026-09-30"
+  "session": "2026-09-30",
+  "price_levels_cloud_run": "https://github.com/zhupengcheng0416/a-share-paper/actions/runs/37132247298"
 }
