@@ -110,7 +110,7 @@ class DeliveryLedger:
         r=self.request(data);self.sha=r['content']['sha']
 
 def send(report,body,kind='market'):
-    subjects={'market':'A股市场技术分析','monthly_backtest':'A股月度回测反馈','quarterly_backtest':'A股季度回测反馈'}
+    subjects={'market':'A股市场技术分析','weekly_backtest':'A股周度回测反馈','monthly_backtest':'A股月度回测反馈','quarterly_backtest':'A股季度回测反馈'}
     if kind not in subjects:raise ValueError('unsupported report kind')
     recipient=load_config()['recipient'];sender=os.environ.get('MAIL_SMTP_USER','')
     if recipient!='zhupengcheng0416@163.com' or sender!=recipient:raise ValueError('fixed mailbox mismatch')

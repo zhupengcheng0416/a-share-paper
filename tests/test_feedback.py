@@ -17,8 +17,13 @@ class FeedbackTests(unittest.TestCase):
         return evaluate(row,'2026-08-01T16:35:00+08:00',bars,end)
     def test_calendar_periods_year_and_quarter_boundary(self):
         p=periods(date(2027,1,1))
-        self.assertEqual(p[0][1:],('2026-12',date(2026,12,1),date(2026,12,31)))
-        self.assertEqual(p[1][1:],('2026-Q4',date(2026,10,1),date(2026,12,31)))
+        self.assertEqual(p[0][1:],('2026-W52',date(2026,12,21),date(2026,12,27)))
+        self.assertEqual(p[1][1:],('2026-12',date(2026,12,1),date(2026,12,31)))
+        self.assertEqual(p[2][1:],('2026-Q4',date(2026,10,1),date(2026,12,31)))
+    def test_week_is_completed_and_iso_year_can_differ(self):
+        self.assertEqual(periods(date(2027,1,4))[0][1:],('2026-W53',date(2026,12,28),date(2027,1,3)))
+        self.assertEqual(periods(date(2026,10,4))[0][1:],('2026-W39',date(2026,9,21),date(2026,9,27)))
+        self.assertEqual(periods(date(2026,10,5))[0][1:],('2026-W40',date(2026,9,28),date(2026,10,4)))
     def test_entry_after_confirmation_not_same_close(self):
         row,bars=self.setup_case();r=self.evaluate(row,bars[:62])
         self.assertEqual(r['status'],'CONFIRMED_PENDING_ENTRY')
@@ -68,6 +73,13 @@ class FeedbackTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             r=build_feedback(None,'monthly_backtest','2026-09',date(2026,9,1),date(2026,9,30),Path(tmp))
         self.assertIsNone(r['summary']['win_rate']);self.assertIn('样本不足',render_feedback(r))
+    def test_weekly_report_empty_sample_and_distinct_title(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            r=build_feedback(None,'weekly_backtest','2026-W40',date(2026,9,28),date(2026,10,4),Path(tmp))
+        body=render_feedback(r)
+        self.assertIn('A股周度回测反馈',body)
+        self.assertIn('2026-09-28至2026-10-04',body)
+        self.assertIsNone(r['summary']['win_rate'])
     def test_duplicate_daily_mail_does_not_archive_new_price_revision(self):
         with patch('urllib.request.urlopen') as request:
             self.assertEqual(archive({}, {'mail_status':'deduplicated_SENT'})['archive_status'],'not_newly_sent')

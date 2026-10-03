@@ -54,11 +54,16 @@ def archive(report,mail,prepare=False):
     return {'archive_status':content['state'],'published_at':published,'plans':len(rows)}
 
 def periods(today):
+    # Only completed Monday-Sunday weeks, including ISO week-year boundaries.
+    week_end=today-timedelta(days=today.weekday()+1)
+    week_start=week_end-timedelta(days=6)
+    iso=week_start.isocalendar()
+    week=('weekly_backtest',f'{iso.year}-W{iso.week:02d}',week_start,week_end)
     previous=today.replace(day=1)-timedelta(days=1)
     month=('monthly_backtest',previous.strftime('%Y-%m'),previous.replace(day=1),previous)
     quarter_start=date(today.year,((today.month-1)//3)*3+1,1)
     end=quarter_start-timedelta(days=1);start=date(end.year,((end.month-1)//3)*3+1,1)
-    return [month,('quarterly_backtest',f'{end.year}-Q{(end.month-1)//3+1}',start,end)]
+    return [week,month,('quarterly_backtest',f'{end.year}-Q{(end.month-1)//3+1}',start,end)]
 
 def validate_history(bars):
     if not bars or [b['date'] for b in bars]!=sorted(set(b['date'] for b in bars)):
@@ -202,12 +207,12 @@ def render_feedback(report):
     for c in report['cases']:
         rows.append(f"<tr><td>{esc(c['name'])}<br>{esc(c['code'])}</td><td>{esc(c.get('published_at',''))}</td><td>{esc(names[c['status']])}<br>{esc(c.get('reason',c.get('exit_reason','')))}</td><td>{esc(c.get('entry_date','—'))} → {esc(c.get('exit_date','—'))}</td><td>{pct(c.get('net_return'))}</td><td>{pct(c.get('max_close_drawdown'))}</td></tr>")
     return f'''<!doctype html><html lang="zh-CN"><meta charset="utf-8"><body style="font:15px system-ui;line-height:1.7;padding:24px;color:#18324e">
-<h1>A股{'月度' if report['kind']=='monthly_backtest' else '季度'}回测反馈 · {esc(report['session'])}</h1>
+<h1>A股{ {'weekly_backtest':'周度','monthly_backtest':'月度','quarterly_backtest':'季度'}[report['kind']] }回测反馈 · {esc(report['session'])}</h1>
 <p>期间：{report['start']}至{report['end']}；生成：{esc(report['generated_at'])}。范围：已发送报告的沪深A股详细分析子集，排除北交所。</p>
 <p>留档{report['archive_days']}天，股票方案案例{s['published_stock_cases']}个，条件方案{s['conditional_cases']}个，假设入场{s['hypothetical_entries']}个，已结束{s['closed_cases']}个。确认触发率{pct(s['confirmation_rate'])}；入场率{pct(s['entry_rate'])}；已结束案例胜率{pct(s['win_rate'])}；平均净收益{pct(s['mean_net_return'])}；对应持有区间相对上证指数价格收益（指数不计费用）的平均差值{pct(s['mean_excess_vs_sse'])}；最大单案例收盘及退出价回撤{pct(s['worst_case_close_drawdown'])}。</p>
 <p>{'已结束案例达到30个，但同股和日期相关性仍影响统计。' if s['sufficient_sample'] else '样本不足：已结束案例少于30个；暂无可验证的策略盈利结论。'} 确认率排除无发布后行情或数据不可得案例；入场率仅统计可判定入场的案例。未触发、未结束、复权变化及数据缺失单独列示，不当作零收益交易。不同日报可能重复覆盖同一股票，案例相互重叠；这是发布后前向方案回测，平均案例收益与回撤不是可投资组合收益或组合最大回撤。不输出年化收益或夏普比率。</p>
 <table cellpadding="8" border="1" style="border-collapse:collapse"><tr><th>股票</th><th>发布时间</th><th>状态／原因</th><th>假设入场→退出</th><th>净收益</th><th>单案例收盘及退出价回撤</th></tr>{''.join(rows)}</table>
-<h2>冻结方法与执行假设</h2><p>仅使用成功发信后的不可变方案；按实际发布时间归属月份/季度，不把休市期间发出的旧收盘报告归到过去。第一根发布后日线验证回踩、收于买点带、未触及止损及MA20/MA60条件；未确认即过期。确认后下一交易日开盘计入0.1%不利滑点，仍在买点带内才假设入场，禁止用确认日收盘成交。确认后独立跟踪冻结方案，日报更新不修改该研究案例；最多20个交易日。全仓止盈采用2R，1R只记录触及情况，不假设分批卖出；买入当天不允许退出（T+1）；当日触及止损则在下一交易日开盘假设退出。同日止损与2R都触及，保守按止损优先；向下跳空按更低开盘价；单一价格或零成交量时不假装可成交。</p>
+<h2>冻结方法与执行假设</h2><p>仅使用成功发信后的不可变方案；按实际发布时间归属自然周（周一至周日）/月份/季度，评估截至该周期结束日，不把休市期间发出的旧收盘报告归到过去。周期结束仍未退出的案例单列未结束，不计入胜率或已结束平均收益。第一根发布后日线验证回踩、收于买点带、未触及止损及MA20/MA60条件；未确认即过期。确认后下一交易日开盘计入0.1%不利滑点，仍在买点带内才假设入场，禁止用确认日收盘成交。确认后独立跟踪冻结方案，日报更新不修改该研究案例；最多20个交易日。全仓止盈采用2R，1R只记录触及情况，不假设分批卖出；买入当天不允许退出（T+1）；当日触及止损则在下一交易日开盘假设退出。同日止损与2R都触及，保守按止损优先；向下跳空按更低开盘价；单一价格或零成交量时不假装可成交。</p>
 <p>佣金、税费等合并假设每边0.1%，另每边0.1%滑点；不是你的实际券商费率。回撤仅使用持仓期间收盘价及退出成交参考价，不使用退出后的当日收盘价。净收益计入这些假设，机器留档另列每边0.05%、0.1%、0.2%费用情景。未核实历史涨跌停/ST标记及完整订单簿，剩余成交假设不能代表券商实盘。历史OHLC与发布时61根种子逐根比对，复权或修订变化则剔除并披露；未验证分红现金流。停牌、退市或权限导致数据不可得时不填充价格。当前不做今日股票池的追溯历史选股，不宣称无幸存者偏差。</p>
 <p>数据缺口：{esc(report['errors'])}；状态分布：{esc(s['status_counts'])}。源码规则版本：{RULE}；无订单、无付费服务。</p>
 <p>来源：<a href="https://webapi.futunn.com/zh-cn/api/quote/basic-data/history-kline">富途历史日线</a>；<a href="https://www.sse.com.cn/lawandrules/sselawsrules2025/trade/universal/c/c_20260424_10816492.shtml">上交所交易规则</a>。</p></body></html>'''

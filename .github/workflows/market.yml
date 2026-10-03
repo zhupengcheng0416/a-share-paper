@@ -7,6 +7,7 @@ on:
   schedule:
     - cron: '35 8 * * 1-5'
     - cron: '50 8 1 * *'
+    - cron: '50 8 * * 1'
 permissions:
   contents: write
   id-token: write
@@ -41,7 +42,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: python -m paper.feedback --archive-report state/real-market-report.json
-      - name: Monthly and quarterly feedback email
+      - name: Weekly monthly and quarterly feedback email
         if: ${{ !cancelled() }}
         env:
           MAIL_SMTP_USER: ${{ secrets.MAIL_SMTP_USER }}
@@ -61,6 +62,6 @@ jobs:
           p=Path('state/mail-status.json')
           if p.exists():lines += ['邮件：'+p.read_text()]
           p=Path('state/feedback-status.json')
-          if p.exists():lines += ['月度/季度反馈：'+p.read_text()]
+          if p.exists():lines += ['周度/月度/季度反馈：'+p.read_text()]
           with open(os.environ['GITHUB_STEP_SUMMARY'],'a',encoding='utf-8') as f:f.write('\n\n'.join(lines))
           PY

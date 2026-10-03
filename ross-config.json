@@ -1,0 +1,32 @@
+{
+  "version": "ross-five-pillars-bull-flag-v1",
+  "mode": "ANALYSIS_ONLY",
+  "orders_enabled": false,
+  "budget_cny": 0,
+  "paid_services_allowed": false,
+  "price_usd": {"min": 1, "max": 20},
+  "relative_volume_min": 5,
+  "relative_volume_basis": "cumulative_today_over_prior_30_complete_daily_volumes",
+  "gain_today_min": 0.1,
+  "float_shares_exclusive_max": 10000000,
+  "require_verified_positive_catalyst": true,
+  "require_intraday_timeframes_minutes": [1, 5],
+  "require_verified_level2_and_tape_review": true,
+  "bull_flag_max_retracement": 0.5,
+  "stop_basis": "pullback_low",
+  "first_profit_r_multiple": 2,
+  "first_profit_fraction": 0.5,
+  "remaining_stop_after_first_profit": "entry_price",
+  "second_fixed_profit_target": null,
+  "continuation_and_hot_market_exceptions": "not_automatically_enabled",
+  "source_note": "Strict low-float subset from the official five-pillar graphic; broader 20m preferences and discretionary exceptions are documented separately.",
+  "qualitative_review": "Ross's discretionary chart, order book and tape judgments are not replaced with invented thresholds.",
+  "cloud_signals_enabled": false,
+  "backtest_status": "pending point-in-time news, float, complete intraday feed and order book/tape validation",
+  "sources": [
+    "https://cdn.warriortrading.com/warriortrading.com/assets/2025-Small-Account-Tool-Kit.pdf",
+    "https://cdn.warriortrading.com/warriortrading.com/assets/Warrior%20Trading%20-%20Stock%20Selection.pdf",
+    "https://www.warriortrading.com/bull-flag-trading/",
+    "https://support.warriortrading.com/support/solutions/articles/19000045007-routing-hot-keys-and-buying-selling-process"
+  ]
+}
