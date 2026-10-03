@@ -1,6 +1,6 @@
 import copy,unittest
 from paper.market import normalized_bars,universe
-from paper.report import technical_judgment,render
+from paper.report import technical_judgment,render,reference_levels,levels_html
 from test_integrations import fixture
 
 class FakeClient:
@@ -8,6 +8,39 @@ class FakeClient:
     def get(self,*args,**kwargs):return next(self.pages)
 
 class MarketTests(unittest.TestCase):
+    def plan_fixture(self):
+        stock={'bars':[{'close':12} for _ in range(61)]}
+        result={'last_price':12,'integration':{'support_resistance':{'context':{'atr':.2},'zones':[
+            {'zone_type':'support','low':9.5,'high':10},
+            {'zone_type':'resistance','low':12.5,'high':13}]}}}
+        return stock,result
+    def test_conditional_levels_have_valid_geometry_and_two_r_room(self):
+        stock,result=self.plan_fixture();p=reference_levels(stock,result)
+        self.assertEqual(p['status'],'CONDITIONAL')
+        self.assertLess(p['stop'],p['buy_low']);self.assertLessEqual(p['buy_low'],p['buy_high'])
+        self.assertLess(p['buy_high'],p['take_profit_1']);self.assertLess(p['take_profit_1'],p['take_profit_2'])
+        self.assertLessEqual(p['take_profit_2'],p['resistance_ceiling'])
+        self.assertGreaterEqual((p['take_profit_2']-p['buy_high'])/(p['buy_high']-p['stop']),2-1e-9)
+        self.assertIn('止盈二',levels_html(p))
+    def test_no_buy_when_downtrend(self):
+        stock,result=self.plan_fixture();stock['bars']=[{'close':14-i/30} for i in range(61)]
+        self.assertEqual(reference_levels(stock,result)['status'],'OBSERVE')
+    def test_no_buy_when_resistance_is_too_close_or_overlaps(self):
+        stock,result=self.plan_fixture();zone=result['integration']['support_resistance']['zones'][1]
+        for low,high in [(10.5,11),(9.9,10.2)]:
+            zone.update(low=low,high=high)
+            self.assertEqual(reference_levels(stock,result)['status'],'OBSERVE')
+    def test_no_invented_levels_when_support_or_atr_missing(self):
+        stock,result=self.plan_fixture();sr=result['integration']['support_resistance']
+        sr['context']['atr']=float('nan')
+        self.assertEqual(reference_levels(stock,result)['status'],'OBSERVE')
+        sr['context']['atr']=.2;sr['zones']=[]
+        self.assertEqual(reference_levels(stock,result)['status'],'OBSERVE')
+    def test_price_rounding_is_conservative(self):
+        stock,result=self.plan_fixture();sr=result['integration']['support_resistance']
+        sr['context']['atr']=.123;sr['zones'][0].update(low=9.503,high=10.001)
+        p=reference_levels(stock,result)
+        self.assertEqual(p['buy_low'],10.02);self.assertEqual(p['buy_high'],10.06);self.assertEqual(p['stop'],9.44)
     def test_delivery_ledger_uses_get_and_put(self):
         from paper.report import DeliveryLedger
         from unittest.mock import patch,MagicMock

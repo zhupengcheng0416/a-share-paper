@@ -4,7 +4,7 @@
   "phase": "real_market_email_verified",
   "mode": "ANALYSIS_ONLY",
   "cloudflare_url": "https://a-share-paper-control.zhupengcheng0416.workers.dev",
-  "python_tests_passed": 22,
+  "python_tests_passed": 27,
   "worker_checks_passed": 23,
   "futu_scope": "quote:read",
   "live_data_connected": true,
@@ -33,5 +33,11 @@
     "ROE and public filing date coverage",
     "point-in-time backtest and independently validated factor model"
   ],
-  "cloudflare_version": "7018808f-3fa6-4252-ae5c-dd2ce7b48286"
+  "cloudflare_version": "7018808f-3fa6-4252-ae5c-dd2ce7b48286",
+  "conditional_price_levels": {
+    "enabled": true,
+    "scope": "each detailed stock; missing/weak/insufficient reward -> OBSERVE",
+    "rule": "support reclaim; 0.25ATR entry buffer, 0.5ATR stop buffer, 1R/2R targets",
+    "backtested": false
+  }
 }
