@@ -109,18 +109,23 @@ class DeliveryLedger:
         if self.sha:data['sha']=self.sha
         r=self.request(data);self.sha=r['content']['sha']
 
-def send(report,body):
+def send(report,body,kind='market'):
+    subjects={'market':'A股市场技术分析','monthly_backtest':'A股月度回测反馈','quarterly_backtest':'A股季度回测反馈'}
+    if kind not in subjects:raise ValueError('unsupported report kind')
     recipient=load_config()['recipient'];sender=os.environ.get('MAIL_SMTP_USER','')
     if recipient!='zhupengcheng0416@163.com' or sender!=recipient:raise ValueError('fixed mailbox mismatch')
     password=os.environ.get('MAIL_SMTP_PASSWORD','')
     if not password:raise ValueError('SMTP authorization not configured')
-    key=hashlib.sha256(('market-v1|'+report['session']).encode()).hexdigest()[:24];ledger=DeliveryLedger(key)
+    key=hashlib.sha256((kind+'-v1|'+report['session']).encode()).hexdigest()[:24];ledger=DeliveryLedger(key)
     previous=ledger.current()
     if previous and previous['state'] in ('PENDING','SENT','UNCERTAIN'):
         return {'mail_status':'deduplicated_'+previous['state'],'session':report['session']}
+    if kind=='market':
+        from .feedback import archive
+        archive(report,{},prepare=True)
     status={'session':report['session'],'state':'PENDING','message_id':f'<{key}@a-share-analysis.local>','updated_at':datetime.now(timezone.utc).isoformat()}
     ledger.save(status)
-    msg=EmailMessage();msg['From']=sender;msg['To']=recipient;msg['Subject']='A股市场技术分析 '+report['session'];msg['Message-ID']=status['message_id']
+    msg=EmailMessage();msg['From']=sender;msg['To']=recipient;msg['Subject']=subjects[kind]+' '+report['session'];msg['Message-ID']=status['message_id']
     msg.set_content('本邮件包含HTML格式的市场技术分析报告。');msg.add_alternative(body,subtype='html')
     try:
         with smtplib.SMTP_SSL('smtp.163.com',465,timeout=30,context=ssl.create_default_context()) as smtp:

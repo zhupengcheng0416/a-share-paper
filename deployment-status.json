@@ -4,7 +4,7 @@
   "phase": "real_market_email_verified",
   "mode": "ANALYSIS_ONLY",
   "cloudflare_url": "https://a-share-paper-control.zhupengcheng0416.workers.dev",
-  "python_tests_passed": 27,
+  "python_tests_passed": 40,
   "worker_checks_passed": 23,
   "futu_scope": "quote:read",
   "live_data_connected": true,
@@ -42,5 +42,14 @@
   },
   "price_levels_verified_commit": "37a77353f7215895303b14d9214d3977ee50f6c5",
   "price_levels_cloud_run": "https://github.com/zhupengcheng0416/a-share-paper/actions/runs/37132247298",
-  "price_levels_mail_status": "deduplicated_SENT; new levels will appear in next session email"
+  "price_levels_mail_status": "deduplicated_SENT; new levels will appear in next session email",
+  "periodic_backtest_feedback": {
+    "enabled": true,
+    "mode": "published-plan-forward-study",
+    "monthly": "previous month, month start",
+    "quarterly": "previous quarter, quarter start",
+    "monthly_schedule_beijing": "Day 1 at 16:50, weekday catch-up",
+    "historical_archive_before_deployment": false,
+    "portfolio_returns_available": false
+  }
 }
