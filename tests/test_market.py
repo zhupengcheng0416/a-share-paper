@@ -8,6 +8,18 @@ class FakeClient:
     def get(self,*args,**kwargs):return next(self.pages)
 
 class MarketTests(unittest.TestCase):
+    def test_delivery_ledger_uses_get_and_put(self):
+        from paper.report import DeliveryLedger
+        from unittest.mock import patch,MagicMock
+        import io
+        def response(request,**kwargs):
+            methods.append(request.get_method())
+            context=MagicMock();context.__enter__.return_value=io.StringIO('{}')
+            return context
+        methods=[]
+        with patch.dict('os.environ',{'GITHUB_REPOSITORY':'zhupengcheng0416/a-share-paper','GITHUB_TOKEN':'test'}),patch('urllib.request.urlopen',side_effect=response):
+            ledger=DeliveryLedger('test');ledger.request();ledger.request({'content':'test'})
+        self.assertEqual(methods,['GET','PUT'])
     def test_volume_precision_and_no_future(self):
         row={'date':20260930,'open':10,'high':11,'low':9,'close':10,'volume':12300,'turnover':1230}
         response={'data':{'kline_list':[row],'volume_precision':2}}

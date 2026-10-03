@@ -121,7 +121,7 @@ def build_report(client,details=20):
         except (RuntimeError,ValueError,KeyError) as e:failures.append({'code':code,'reason':str(e)})
     if not results:raise ValueError('no real history analysis succeeded')
     benchmarks=[]
-    for code,name in [('SH.000001','��ָ֤��'),('SZ.399001','��֤��ָ'),('SZ.399006','��ҵ��ָ')]:
+    for code,name in [('SH.000001','上证指数'),('SZ.399001','深证成指'),('SZ.399006','创业板指')]:
         try:
             bars=normalized_bars(client.get('history',code=code,start=str(today-timedelta(days=730)),end=session),session)
             from .report import technical_judgment

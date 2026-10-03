@@ -42,11 +42,11 @@ jobs:
           python - <<'PY'
           import json,os
           from pathlib import Path
-          lines=['## A����ʵ���ݷ�����ֻ�о������µ���']
+          lines=['## A股真实数据分析（只研究，不下单）']
           p=Path('state/real-market-report.json')
           if p.exists():
-              r=json.loads(p.read_text());lines += ['�����գ�'+r['session'], '���ǣ�'+json.dumps(r['coverage'],ensure_ascii=False)]
+              r=json.loads(p.read_text());lines += ['交易日：'+r['session'], '覆盖：'+json.dumps(r['coverage'],ensure_ascii=False)]
           p=Path('state/mail-status.json')
-          if p.exists():lines += ['�ʼ���'+p.read_text()]
+          if p.exists():lines += ['邮件：'+p.read_text()]
           with open(os.environ['GITHUB_STEP_SUMMARY'],'a',encoding='utf-8') as f:f.write('\n\n'.join(lines))
           PY
