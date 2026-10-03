@@ -1,3 +1,4 @@
+import {githubAuthorized,relay} from './market-data.mjs';
 const headers = {'content-type':'application/json; charset=utf-8','cache-control':'no-store','x-content-type-options':'nosniff'};
 const json = (body,status=200) => new Response(JSON.stringify(body),{status,headers});
 export default {
@@ -5,6 +6,16 @@ export default {
     const path = new URL(request.url).pathname;
     if(path === '/health') return json({service:'a-share-paper',environment:'SIMULATE',phase:env.FUTU_REFRESH_TOKEN?'cloud_research_verified':'futu_rest_authorization_preflight',budget_cny:0,trading_enabled:false,broker_authorization_configured:!!env.FUTU_REFRESH_TOKEN,a_share_rest_account:'verified_via_cloudflare',cloud_connectivity:'verified',research_engines:3,cloud_research_runner:'github_actions_verified',live_market_scan:false});
     if(path === '/') return new Response(`<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>A������ģ����</title><style>body{font:16px system-ui;background:#f3f7fc;color:#18324e;margin:8vh auto;max-width:760px;padding:24px}article{background:white;padding:36px;border-radius:16px}h1{color:#1263b4}small{color:#557}</style><article><small>SIMULATE ONLY �� �����Լ��</small><h1>A������ģ����</h1><p>Cloudflare ���ƶ������ߡ�</p><p>��; REST �ƶ�ֻ����������֤���Ѷ�ȡ�� A ��ģ���˻�����ǰ��Ȩ��ΧΪ quote:read��</p><p>��Ʊ�أ��Ƽ��� / ����ֵ �� 70��Ԫ��</p><p>������������Ŀ���о�ģ�飺V3֧��������AlphaMaster���Ӽ��㡢PA_Agent�۸���Ϊ���ݡ�GitHub�ƶ�Ubuntu����������֤��17��Python���Լ�8��ӿڼ��ͨ����</p><p>ȫ�г���ʵ���ݡ���ʱ�г�ɨ�衢�ʼ���ģ�ⶩ�����������Դ���ͨ����ǰδ�ύ�κζ�����</p><p>���Զ������ײͣ������ø�������򸶷ѷ���������Ѷ�Ȳ���ʱ��ͣ���С�</p></article></html>`,{headers:{'content-type':'text/html; charset=utf-8','cache-control':'no-store','content-security-policy':"default-src 'none'; style-src 'unsafe-inline'",'x-content-type-options':'nosniff'}});
+    if(path==='/api/market-data'){
+      if(request.method!=='POST')return json({error:'method_not_allowed'},405);
+      const auth=request.headers.get('authorization')||'';
+      const control=!!env.CONTROL_TOKEN&&auth===`Bearer ${env.CONTROL_TOKEN}`;
+      if(!control&&!await githubAuthorized(auth.replace(/^Bearer /,'')))return json({error:'unauthorized'},401);
+      if(!env.FUTU_REFRESH_TOKEN)return json({error:'quote_authorization_missing'},503);
+      if(Number(request.headers.get('content-length')||0)>20000)return json({error:'request_too_large'},413);
+      try {const body=await request.text();if(body.length>20000)return json({error:'request_too_large'},413);return json(await relay(JSON.parse(body),env));}
+      catch(e){return json({error:'market_data_failed',detail:/^(invalid_|operation_not_allowed|quote_)/.test(e.message)?e.message:'unavailable'},502);}
+    }
     if(!env.CONTROL_TOKEN || request.headers.get('authorization') !== `Bearer ${env.CONTROL_TOKEN}`) return json({error:'unauthorized'},401);
     if(path === '/api/futu/preflight') {
       if(request.method !== 'GET') return json({error:'method_not_allowed'},405);

@@ -32,11 +32,15 @@ def validate_history(stock):
     import pandas as pd
     bars=stock['bars']
     if len(bars)<260:raise ValueError('integration requires at least 260 completed daily bars')
-    if stock.get('adjust_mode') not in ('hfq_point_in_time','qfq_asof_session'):
+    if stock.get('adjust_mode') not in ('hfq_point_in_time','qfq_asof_session','qfq_latest_snapshot'):
         raise ValueError('adjustment provenance required')
     for bar in bars:
         datetime.strptime(bar['date'],'%Y-%m-%d')
         if bar.get('closed') is not True:raise ValueError('forming bar prohibited')
+        if any(not isinstance(bar.get(k),(int,float)) or isinstance(bar[k],bool) or not math.isfinite(bar[k]) for k in ('open','high','low','close','volume','turnover_cny')):
+            raise ValueError('invalid numeric history')
+        if not 0<bar['low']<=min(bar['open'],bar['close'])<=max(bar['open'],bar['close'])<=bar['high'] or bar['volume']<=0 or bar['turnover_cny']<=0:
+            raise ValueError('invalid price/volume history')
     dates=[b['date'] for b in bars]
     if dates!=sorted(set(dates)) or dates[-1]!=stock['session']:raise ValueError('session mismatch')
     frame=pd.DataFrame(bars)
@@ -67,7 +71,7 @@ def factor_score(features,artifact):
 
 def analyze(stock,config,artifact=None):
     decision=evaluate(stock,config)
-    if decision['signal'] in ('BLOCKED','EXCLUDED'):return decision
+    if decision['signal']=='EXCLUDED' or (decision['signal']=='BLOCKED' and decision.get('reason')!='missing_data'):return decision
     commits=setup_upstream()
     df=validate_history(stock)
     from src.sr_engine import SREngine
@@ -86,11 +90,12 @@ def analyze(stock,config,artifact=None):
     features=alpha_features(df)
     alpha={'feature_count':features.shape[1],'vocab_version':FORMULA_VOCAB.version,'model_status':'no_frozen_factor','score':None}
     if artifact:
+        if stock.get('adjust_mode')=='qfq_latest_snapshot':raise ValueError('latest-adjusted snapshot prohibited for frozen research backtest')
         if artifact.get('training_end','9999')>=stock['session']:raise ValueError('factor not frozen before decision session')
         if artifact.get('upstream_commit')!=commits['AlphaMaster']:raise ValueError('factor source version mismatch')
         alpha.update(score=factor_score(features,artifact),model_status=artifact.get('status','research_only'),formula_names=artifact['formula_names'])
     decision['base_signal']=decision['signal']
-    decision['signal']='WATCH' # Research output cannot activate brokerage execution.
+    decision['signal']='WATCH' if decision['base_signal']!='BLOCKED' else 'BLOCKED'
     decision['integration']={'commits':commits,'support_resistance':{'zones':zones,'context':context},'alpha':alpha,
         'price_action':{'program_features':build_program_features_dict(frame),'geometry':clean(compute_kline_geometry_features(frame,limit=10)),
         'mode':'deterministic_grounding','llm_calls':0},'execution':'DISABLED','validation_status':'research_only'}

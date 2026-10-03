@@ -1,0 +1,30 @@
+import assert from 'node:assert/strict';
+import {webcrypto} from 'node:crypto';
+import {githubAuthorized,quoteRequest} from '../cloudflare/market-data.mjs';
+import worker from '../cloudflare/worker.mjs';
+if(!globalThis.crypto)globalThis.crypto=webcrypto;
+for(const operation of ['orders','trade','cancel','financials'])assert.throws(()=>quoteRequest({operation}));
+assert.throws(()=>quoteRequest({operation:'history',code:'US.AAPL',start:'2025-01-01',end:'2026-09-30'}));
+assert.throws(()=>quoteRequest({operation:'snapshot',codes:[]}));
+assert.throws(()=>quoteRequest({operation:'history',code:'SH.600000',start:'2026-01-01',end:'2025-01-01'}));
+assert.equal(quoteRequest({operation:'history',code:'SH.600000',start:'2025-01-01',end:'2026-09-30'}).method,'GET');
+const pair=await crypto.subtle.generateKey({name:'RSASSA-PKCS1-v1_5',modulusLength:2048,publicExponent:new Uint8Array([1,0,1]),hash:'SHA-256'},true,['sign','verify']);
+const jwk=await crypto.subtle.exportKey('jwk',pair.publicKey);jwk.kid='test';
+const original=globalThis.fetch;globalThis.fetch=async()=>new Response(JSON.stringify({keys:[jwk]}));
+const claims={iss:'https://token.actions.githubusercontent.com',aud:'a-share-market-data',repository:'zhupengcheng0416/a-share-paper',repository_id:'1403263803',repository_owner_id:'336906782',ref:'refs/heads/main',workflow_ref:'zhupengcheng0416/a-share-paper/.github/workflows/market.yml@refs/heads/main',event_name:'push',nbf:1000,exp:1300};
+async function jwt(c,forged=false){
+ const part=o=>Buffer.from(JSON.stringify(o)).toString('base64url');
+ const message=part({alg:'RS256',kid:'test'})+'.'+part(c);
+ const signature=await crypto.subtle.sign('RSASSA-PKCS1-v1_5',pair.privateKey,new TextEncoder().encode(message));
+ return message+'.'+(forged?'AA':Buffer.from(signature).toString('base64url'));
+}
+assert.equal(await githubAuthorized(await jwt(claims),1100),true);
+assert.equal(await githubAuthorized(await jwt(claims,true),1100),false);
+assert.equal(await githubAuthorized(await jwt({...claims,repository:'someone/else'}),1100),false);
+assert.equal(await githubAuthorized(await jwt({...claims,ref:'refs/pull/1/merge'}),1100),false);
+assert.equal(await githubAuthorized(await jwt(claims),1400),false);
+assert.equal(await githubAuthorized('invalid',1100),false);
+globalThis.fetch=original;
+const r=await worker.fetch(new Request('https://test/api/market-data',{method:'POST',body:'{}'}),{});
+assert.equal(r.status,401);
+console.log('15 quote-only relay / OIDC security checks passed');
