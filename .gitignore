@@ -1,0 +1,7 @@
+.venv/
+__pycache__/
+state/
+.env
+.dev.vars
+.wrangler/
+*.sqlite3*
