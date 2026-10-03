@@ -17,6 +17,9 @@ class MarketTests(unittest.TestCase):
         self.assertEqual(after['extended_profit_range'],[11.13,11.5])
         self.assertEqual(after['stop_range'],before['stop_range'])
         self.assertFalse(after['execution_rule_changed'])
+        self.assertFalse(after['breakout_confirmed'])
+        self.assertGreater(after['breakout_profit_range'][0],after['breakout_resistance'])
+        self.assertEqual(after['breakout_profit_range'][1],12.7)
         result['integration']['support_resistance']['zones'][1]['low']=10.5
         self.assertIsNone(reference_intervals(result)['extended_profit_range'])
     def test_priority_mail_caps_ten_and_never_fills_with_invalid_setups(self):
