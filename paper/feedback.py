@@ -102,7 +102,6 @@ def evaluate(row,published_at,bars,end,benchmark=None):
     deferred_stop=entry_bar['low']<=plan['stop']
     # Entry-day exits are forbidden (T+1); follow the frozen study until exit.
     for holding,b in enumerate(future[2:],start=2):
-        peak=max(peak,b['close']);drawdown=min(drawdown,b['close']/peak-1)
         tp1=tp1 or b['high']>=plan['take_profit_1']
         stop_hit=b['low']<=plan['stop'];target_hit=b['high']>=plan['take_profit_2']
         if deferred_stop or stop_hit or target_hit or holding>=20:
@@ -111,6 +110,7 @@ def evaluate(row,published_at,bars,end,benchmark=None):
             # OHLC cannot resolve order: stop first; adverse gap fills at open.
             exit_raw=b['open'] if deferred_stop else min(b['open'],plan['stop']) if stop_hit else plan['take_profit_2'] if target_hit else b['close']
             exit_price=exit_raw*(1-SLIP)
+            peak=max(peak,exit_price);drawdown=min(drawdown,exit_price/peak-1)
             gross=exit_price/entry-1;net=exit_price*(1-FEE)/(entry*(1+FEE))-1
             reason='T1_DEFERRED_STOP_NEXT_OPEN' if deferred_stop else 'STOP_FIRST_AMBIGUOUS' if stop_hit and target_hit else 'STOP' if stop_hit else 'TARGET_2R' if target_hit else 'TIME_20_SESSIONS'
             matched=None
@@ -121,16 +121,21 @@ def evaluate(row,published_at,bars,end,benchmark=None):
                            excess_return=None if matched is None else net-matched,
                            max_close_drawdown=drawdown,take_profit_1_hit=tp1,
                            sensitivity={str(f):exit_price*(1-f)/(entry*(1+f))-1 for f in (.0005,.001,.002)})
+        peak=max(peak,b['close']);drawdown=min(drawdown,b['close']/peak-1)
     last=future[-1]
     return outcome('OPEN',mark_date=last['date'],unrealized_return=last['close']/entry-1,max_close_drawdown=drawdown,take_profit_1_hit=tp1)
 
 def summarize(cases):
     closed=[r for r in cases if r['status']=='CLOSED'];conditional=[r for r in cases if r['status']!='OBSERVE']
     entries=[r for r in cases if 'entry_date' in r]
+    confirmable=[r for r in cases if r['status'] not in ('OBSERVE','PENDING','DATA_UNAVAILABLE')]
+    confirmed=[r for r in confirmable if r['status']!='NOT_TRIGGERED']
+    entry_evaluable=[r for r in cases if r['status'] in ('NOT_TRIGGERED','ENTRY_CANCELLED','OPEN','CLOSED') or (r['status']=='EXECUTION_UNCERTAIN' and 'entry_date' in r)]
     returns=[r['net_return'] for r in closed];excess=[r['excess_return'] for r in closed if r.get('excess_return') is not None]
     return {'published_stock_cases':len(cases),'conditional_cases':len(conditional),'status_counts':dict(Counter(r['status'] for r in cases)),
             'hypothetical_entries':len(entries),'closed_cases':len(closed),
-            'entry_rate':len(entries)/len(conditional) if conditional else None,
+            'confirmation_rate':len(confirmed)/len(confirmable) if confirmable else None,
+            'entry_rate':sum('entry_date' in r for r in entry_evaluable)/len(entry_evaluable) if entry_evaluable else None,
             'win_rate':sum(r>0 for r in returns)/len(returns) if returns else None,
             'mean_net_return':sum(returns)/len(returns) if returns else None,
             'mean_excess_vs_sse':sum(excess)/len(excess) if excess else None,
@@ -191,11 +196,11 @@ def render_feedback(report):
     return f'''<!doctype html><html lang="zh-CN"><meta charset="utf-8"><body style="font:15px system-ui;line-height:1.7;padding:24px;color:#18324e">
 <h1>A股{'月度' if report['kind']=='monthly_backtest' else '季度'}回测反馈 · {esc(report['session'])}</h1>
 <p>期间：{report['start']}至{report['end']}；生成：{esc(report['generated_at'])}。范围：已发送报告的沪深A股详细分析子集，排除北交所。</p>
-<p>留档{report['archive_days']}天，股票方案案例{s['published_stock_cases']}个，条件方案{s['conditional_cases']}个，假设入场{s['hypothetical_entries']}个，已结束{s['closed_cases']}个。入场率{pct(s['entry_rate'])}；已结束案例胜率{pct(s['win_rate'])}；平均净收益{pct(s['mean_net_return'])}；对应持有区间相对上证指数平均差值{pct(s['mean_excess_vs_sse'])}；最大单案例收盘回撤{pct(s['worst_case_close_drawdown'])}。</p>
-<p>{'已结束案例达到30个，但同股和日期相关性仍影响统计。' if s['sufficient_sample'] else '样本不足：已结束案例少于30个；暂无可验证的策略盈利结论。'} 未触发、未结束、复权变化及数据缺失单独列示，不当作零收益交易。不同日报可能重复覆盖同一股票，案例相互重叠；这是发布后前向方案回测，平均案例收益与回撤不是可投资组合收益或组合最大回撤。不输出年化收益或夏普比率。</p>
-<table cellpadding="8" border="1" style="border-collapse:collapse"><tr><th>股票</th><th>发布时间</th><th>状态／原因</th><th>假设入场→退出</th><th>净收益</th><th>单案例收盘回撤</th></tr>{''.join(rows)}</table>
-<h2>冻结方法与执行假设</h2><p>仅使用成功发信后的不可变方案；按实际发布时间归属月份/季度，不把休市期间发出的旧收盘报告归到过去。第一根发布后日线验证回踩、收于买点带、未触及止损及MA20/MA60条件；未确认即过期。确认后下一交易日开盘计入0.1%不利滑点，仍在买点带内才假设入场，禁止用确认日收盘成交。确认后独立跟踪冻结方案，日报更新不修改该研究案例；最多20个交易日。全仓止盈采用2R，1R只记录触及情况，不假设分批卖出；买入当天不允许退出（T+1）。同日止损与2R都触及，保守按止损优先；向下跳空按更低开盘价；单一价格或零成交量时不假装可成交。</p>
-<p>佣金、税费等合并假设每边0.1%，另每边0.1%滑点；不是你的实际券商费率。净收益计入这些假设，机器留档另列每边0.05%、0.1%、0.2%费用情景。未核实历史涨跌停/ST标记及完整订单簿，剩余成交假设不能代表券商实盘。历史OHLC与发布时61根种子逐根比对，复权或修订变化则剔除并披露；未验证分红现金流。停牌、退市或权限导致数据不可得时不填充价格。当前不做今日股票池的追溯历史选股，不宣称无幸存者偏差。</p>
+<p>留档{report['archive_days']}天，股票方案案例{s['published_stock_cases']}个，条件方案{s['conditional_cases']}个，假设入场{s['hypothetical_entries']}个，已结束{s['closed_cases']}个。确认触发率{pct(s['confirmation_rate'])}；入场率{pct(s['entry_rate'])}；已结束案例胜率{pct(s['win_rate'])}；平均净收益{pct(s['mean_net_return'])}；对应持有区间相对上证指数价格收益（指数不计费用）的平均差值{pct(s['mean_excess_vs_sse'])}；最大单案例收盘及退出价回撤{pct(s['worst_case_close_drawdown'])}。</p>
+<p>{'已结束案例达到30个，但同股和日期相关性仍影响统计。' if s['sufficient_sample'] else '样本不足：已结束案例少于30个；暂无可验证的策略盈利结论。'} 确认率排除无发布后行情或数据不可得案例；入场率仅统计可判定入场的案例。未触发、未结束、复权变化及数据缺失单独列示，不当作零收益交易。不同日报可能重复覆盖同一股票，案例相互重叠；这是发布后前向方案回测，平均案例收益与回撤不是可投资组合收益或组合最大回撤。不输出年化收益或夏普比率。</p>
+<table cellpadding="8" border="1" style="border-collapse:collapse"><tr><th>股票</th><th>发布时间</th><th>状态／原因</th><th>假设入场→退出</th><th>净收益</th><th>单案例收盘及退出价回撤</th></tr>{''.join(rows)}</table>
+<h2>冻结方法与执行假设</h2><p>仅使用成功发信后的不可变方案；按实际发布时间归属月份/季度，不把休市期间发出的旧收盘报告归到过去。第一根发布后日线验证回踩、收于买点带、未触及止损及MA20/MA60条件；未确认即过期。确认后下一交易日开盘计入0.1%不利滑点，仍在买点带内才假设入场，禁止用确认日收盘成交。确认后独立跟踪冻结方案，日报更新不修改该研究案例；最多20个交易日。全仓止盈采用2R，1R只记录触及情况，不假设分批卖出；买入当天不允许退出（T+1）；当日触及止损则在下一交易日开盘假设退出。同日止损与2R都触及，保守按止损优先；向下跳空按更低开盘价；单一价格或零成交量时不假装可成交。</p>
+<p>佣金、税费等合并假设每边0.1%，另每边0.1%滑点；不是你的实际券商费率。回撤仅使用持仓期间收盘价及退出成交参考价，不使用退出后的当日收盘价。净收益计入这些假设，机器留档另列每边0.05%、0.1%、0.2%费用情景。未核实历史涨跌停/ST标记及完整订单簿，剩余成交假设不能代表券商实盘。历史OHLC与发布时61根种子逐根比对，复权或修订变化则剔除并披露；未验证分红现金流。停牌、退市或权限导致数据不可得时不填充价格。当前不做今日股票池的追溯历史选股，不宣称无幸存者偏差。</p>
 <p>数据缺口：{esc(report['errors'])}；状态分布：{esc(s['status_counts'])}。源码规则版本：{RULE}；无订单、无付费服务。</p>
 <p>来源：<a href="https://webapi.futunn.com/zh-cn/api/quote/basic-data/history-kline">富途历史日线</a>；<a href="https://www.sse.com.cn/lawandrules/sselawsrules2025/trade/universal/c/c_20260424_10816492.shtml">上交所交易规则</a>。</p></body></html>'''
 

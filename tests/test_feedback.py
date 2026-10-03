@@ -39,6 +39,14 @@ class FeedbackTests(unittest.TestCase):
     def test_adjustment_revision_excluded(self):
         row,bars=self.setup_case();bars=copy.deepcopy(bars);bars[0]['close']+=.01
         self.assertEqual(self.evaluate(row,bars)['status'],'DATA_UNAVAILABLE')
+    def test_drawdown_ignores_close_after_intraday_exit(self):
+        row,bars=self.setup_case();bars[-1].update(low=9.6,high=20,close=19)
+        result=self.evaluate(row,bars)
+        self.assertLess(result['max_close_drawdown'],-.03)
+    def test_missing_data_not_counted_as_failed_trigger(self):
+        s=summarize([{'status':'NOT_TRIGGERED'},{'status':'DATA_UNAVAILABLE'},{'status':'PENDING'}])
+        self.assertEqual(s['confirmation_rate'],0)
+        self.assertIsNone(summarize([{'status':'DATA_UNAVAILABLE'}])['confirmation_rate'])
     def test_limit_like_single_price_is_not_fake_fill(self):
         row,bars=self.setup_case();bars[-2].update(open=10.05,high=10.05,low=10.05,close=10.05)
         self.assertEqual(self.evaluate(row,bars)['status'],'EXECUTION_UNCERTAIN')
