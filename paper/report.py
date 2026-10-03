@@ -65,10 +65,18 @@ def reference_intervals(result):
     stop_high=cents(support['low']-.25*atr,ROUND_FLOOR)
     if not 0<stop_low<=stop_high<entry_low:return {'status':'UNAVAILABLE','reason':'止损区间结构无效'}
     el,eh,sl,sh=map(lambda v:Decimal(str(v)),(entry_low,entry_high,stop_low,stop_high))
+    resistances=[z for z in sr.get('zones',[]) if z.get('zone_type')=='resistance' and
+                 all(isinstance(z.get(k),(int,float)) and math.isfinite(z[k]) for k in ('low','high')) and 0<z['low']<=z['high'] and z['high']>support['high']]
+    ceiling=cents(min(z['low'] for z in resistances),ROUND_FLOOR) if resistances else None
+    extended_low=cents(3*el-2*sh,ROUND_CEILING)
+    extended_high=min(cents(4*eh-3*sl,ROUND_CEILING),ceiling) if ceiling is not None else None
+    extended=[extended_low,extended_high] if extended_high is not None and extended_high>=extended_low else None
     return {'status':'REFERENCE_ONLY','assumed_entry_range':[entry_low,entry_high],
             'stop_range':[stop_low,stop_high],
             'take_profit_1_range':[cents(2*el-sh,ROUND_CEILING),cents(2*eh-sl,ROUND_CEILING)],
-            'take_profit_2_range':[cents(3*el-2*sh,ROUND_CEILING),cents(3*eh-2*sl,ROUND_CEILING)]}
+            'take_profit_2_range':[cents(3*el-2*sh,ROUND_CEILING),cents(3*eh-2*sl,ROUND_CEILING)],
+            'extended_profit_range':extended,'extended_profit_basis':'2R lower bound to 3R upper bound, capped at nearest resistance',
+            'execution_rule_changed':False}
 
 def levels_html(plan,intervals=None):
     extra=''
@@ -134,14 +142,15 @@ def render(report):
     band=lambda values:'–'.join(f'{v:.2f}' for v in values)
     for rank,r in enumerate(report['results'],1):
         p=reference_levels(stocks[r['code']],r);b=reference_intervals(r)
-        rows.append(f"<tr><td>{rank}</td><td>{html.escape(r['name'])}<br>{html.escape(r['code'])}</td><td>{p['buy_low']:.2f}–{p['buy_high']:.2f}</td><td>{band(b['take_profit_1_range'])}</td><td>{band(b['take_profit_2_range'])}</td><td>{band(b['stop_range'])}</td></tr>")
+        extended=band(b['extended_profit_range']) if b['extended_profit_range'] else '阻力空间不足'
+        rows.append(f"<tr><td>{rank}</td><td>{html.escape(r['name'])}<br>{html.escape(r['code'])}</td><td>{p['buy_low']:.2f}–{p['buy_high']:.2f}</td><td>{band(b['take_profit_1_range'])}</td><td>{band(b['take_profit_2_range'])}</td><td>{extended}</td><td>{band(b['stop_range'])}</td></tr>")
     selection=report['selection']
     return f'''<!doctype html><html lang="zh-CN"><meta charset="utf-8"><body style="font:16px system-ui;line-height:1.7;padding:20px">
 <h1>A股优先技术候选 · {html.escape(report['session'])}</h1>
 <p>详细筛选{selection['analyzed_count']}只，符合条件{selection['eligible_count']}只，本次选出{selection['selected_count']}只。价格单位：人民币元。</p>
-<table border="1" cellpadding="10" style="border-collapse:collapse"><tr><th>顺序</th><th>股票</th><th>条件买入区间</th><th>止盈一区间</th><th>止盈二区间</th><th>止损区间</th></tr>{''.join(rows)}</table>
+<table border="1" cellpadding="10" style="border-collapse:collapse"><tr><th>顺序</th><th>股票</th><th>条件买入区间</th><th>止盈一区间</th><th>止盈二区间</th><th>延伸获利观察区间</th><th>止损区间</th></tr>{''.join(rows)}</table>
 <p>{'暂无符合条件的股票。' if not rows else '等待后续日线回踩确认，未确认不买，超过买入上限不追涨。'}按止损距离占比、接近买入区间程度排序；这是沪深A股候选子集的技术筛选，尚缺财务及行业核验，不代表全市场最优。数据源：富途最近已收盘日线。</p>
-<p>止损区间在支撑下沿以下0.25–0.5ATR；止盈区间按入场及止损假设的1R/2R计算，端点不能任意混用。A股T+1、跳空或跌停可能影响退出。仅研究，不下单。</p></body></html>'''
+<p>止损区间在支撑下沿以下0.25–0.5ATR；止盈区间按入场及止损假设的1R/2R计算。延伸目标从2R下界至3R上界，并以最近阻力为上限；它仅供后续重新评估，不保证达到或代表最高利润，旧2R退出回测不能证明延伸目标收益。端点不能任意混用。A股T+1、跳空或跌停可能影响退出。仅研究，不下单。</p></body></html>'''
 
 class DeliveryLedger:
     """Tiny delivery status in GitHub; durable PENDING before SMTP, never blind retry."""
