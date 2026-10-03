@@ -47,6 +47,11 @@ class FeedbackTests(unittest.TestCase):
         s=summarize([{'status':'NOT_TRIGGERED'},{'status':'DATA_UNAVAILABLE'},{'status':'PENDING'}])
         self.assertEqual(s['confirmation_rate'],0)
         self.assertIsNone(summarize([{'status':'DATA_UNAVAILABLE'}])['confirmation_rate'])
+    def test_missing_market_session_not_skipped_to_later_entry(self):
+        row,bars=self.setup_case();bars.pop(-2)
+        result=evaluate(row,'2026-08-01T16:35:00+08:00',bars,'2026-08-31',calendar_days=['2026-08-03','2026-08-04','2026-08-05'])
+        self.assertEqual(result['status'],'DATA_UNAVAILABLE')
+        self.assertEqual(result['reason'],'missing_entry_session')
     def test_limit_like_single_price_is_not_fake_fill(self):
         row,bars=self.setup_case();bars[-2].update(open=10.05,high=10.05,low=10.05,close=10.05)
         self.assertEqual(self.evaluate(row,bars)['status'],'EXECUTION_UNCERTAIN')

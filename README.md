@@ -32,7 +32,7 @@ node tests/test_worker.mjs
 node tests/test_market_worker.mjs
 ```
 
-42项Python测试及23项Node检查在本地通过。云端实测记录与投递状态见deployment-status.json及Actions页面。SMTP接收成功不等于已独立确认收件箱到达。
+43项Python测试及23项Node检查在本地通过。云端实测记录与投递状态见deployment-status.json及Actions页面。SMTP接收成功不等于已独立确认收件箱到达。
 
 ## 条件买点与止盈止损
 

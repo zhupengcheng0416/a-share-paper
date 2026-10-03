@@ -69,7 +69,7 @@ def validate_history(bars):
         if not (0<b['low']<=min(b['open'],b['close'])<=max(b['open'],b['close'])<=b['high']) or b['volume']<0:
             raise ValueError('invalid_history_geometry')
 
-def evaluate(row,published_at,bars,end,benchmark=None):
+def evaluate(row,published_at,bars,end,benchmark=None,calendar_days=None):
     plan=row['plan'];base={'code':row['code'],'name':row['name'],'published_at':published_at}
     def outcome(status,**values):return dict(base,status=status,**values)
     if plan['status']!='CONDITIONAL':return outcome('OBSERVE',reason=plan['reason'])
@@ -82,6 +82,9 @@ def evaluate(row,published_at,bars,end,benchmark=None):
             return outcome('DATA_UNAVAILABLE',reason='historical_price_revision_or_adjustment_changed')
     published_date=datetime.fromisoformat(published_at).astimezone(ZoneInfo('Asia/Shanghai')).date().isoformat()
     future=[b for b in bars if published_date<b['date']<=end]
+    expected=[d for d in (calendar_days or []) if published_date<d<=end]
+    if expected and (not future or future[0]['date']!=expected[0]):
+        return outcome('DATA_UNAVAILABLE',reason='missing_first_post_publication_session')
     if not future:return outcome('PENDING',reason='no_post_publication_session')
     confirmation=future[0]
     history=[b['close'] for b in bars if b['date']<=confirmation['date']]
@@ -91,8 +94,11 @@ def evaluate(row,published_at,bars,end,benchmark=None):
                and confirmation['low']>plan['stop'] and plan['buy_low']<=confirmation['close']<=plan['buy_high']
                and sum(history[-20:])/20>=sum(history[-60:])/60 and confirmation['close']>=sum(history[-60:])/60)
     if not qualifies:return outcome('NOT_TRIGGERED')
-    if len(future)<2:return outcome('CONFIRMED_PENDING_ENTRY')
+    if len(future)<2:
+        return outcome('DATA_UNAVAILABLE',reason='missing_entry_session') if len(expected)>1 else outcome('CONFIRMED_PENDING_ENTRY')
     entry_bar=future[1];entry=entry_bar['open']*(1+SLIP)
+    if expected and (len(expected)<2 or entry_bar['date']!=expected[1]):
+        return outcome('DATA_UNAVAILABLE',reason='missing_entry_session')
     if entry_bar['volume']<=0 or entry_bar['low']==entry_bar['high']:
         return outcome('EXECUTION_UNCERTAIN',reason='zero_volume_or_single_price_entry')
     if not plan['buy_low']<=entry<=plan['buy_high']:
@@ -102,6 +108,8 @@ def evaluate(row,published_at,bars,end,benchmark=None):
     deferred_stop=entry_bar['low']<=plan['stop']
     # Entry-day exits are forbidden (T+1); follow the frozen study until exit.
     for holding,b in enumerate(future[2:],start=2):
+        if expected and (holding>=len(expected) or b['date']!=expected[holding]):
+            return outcome('DATA_UNAVAILABLE',reason='missing_holding_session')
         tp1=tp1 or b['high']>=plan['take_profit_1']
         stop_hit=b['low']<=plan['stop'];target_hit=b['high']>=plan['take_profit_2']
         if deferred_stop or stop_hit or target_hit or holding>=20:
@@ -158,9 +166,9 @@ def build_feedback(client,kind,label,start,end,root=ROOT):
         if record.get('rule')!=RULE:raise ValueError('unknown archived rule version')
         if start<=published<=end:records.append(record)
     conditional=[(record,row) for record in records for row in record['plans'] if row['plan']['status']=='CONDITIONAL']
-    codes=sorted(set(row['code'] for _,row in conditional));history={};errors={};benchmark={}
+    codes=sorted(set(row['code'] for _,row in conditional));history={};errors={};benchmark={};days=[]
     if conditional:
-        calendar=client.get('calendar',start=str(end-timedelta(days=30)),end=str(end))
+        calendar=client.get('calendar',start=str(start),end=str(end))
         days=[d['time'] for d in calendar['data']['trading_days'] if d['time']<=str(end)]
         if not days:raise ValueError('period_calendar_unavailable')
         session=max(days)
@@ -178,7 +186,7 @@ def build_feedback(client,kind,label,start,end,root=ROOT):
         for row in record['plans']:
             if row['plan']['status']=='CONDITIONAL' and row['code'] in errors:
                 cases.append({'code':row['code'],'name':row['name'],'published_at':record['published_at'],'status':'DATA_UNAVAILABLE','reason':errors[row['code']]});continue
-            try:cases.append(evaluate(row,record['published_at'],history.get(row['code'],[]),str(end),benchmark))
+            try:cases.append(evaluate(row,record['published_at'],history.get(row['code'],[]),str(end),benchmark,days))
             except (ValueError,KeyError,IndexError) as e:cases.append({'code':row['code'],'name':row['name'],'status':'DATA_UNAVAILABLE','reason':str(e)})
     return {'session':label,'kind':kind,'start':str(start),'end':str(end),'rule':RULE,
             'generated_at':datetime.now(ZoneInfo('Asia/Shanghai')).isoformat(),'source':'Futu REST + immutable published-plan archive',
