@@ -1,6 +1,6 @@
 import copy,unittest
 from paper.market import normalized_bars,universe
-from paper.report import technical_judgment,render,reference_levels,levels_html
+from paper.report import technical_judgment,render,reference_levels,reference_intervals,levels_html
 from test_integrations import fixture
 
 class FakeClient:
@@ -8,6 +8,17 @@ class FakeClient:
     def get(self,*args,**kwargs):return next(self.pages)
 
 class MarketTests(unittest.TestCase):
+    def test_structural_intervals_do_not_promote_weak_stock_to_signal(self):
+        stock,result=self.plan_fixture()
+        stock['bars']=[{'close':14-i/30} for i in range(61)]
+        p=reference_levels(stock,result);bands=reference_intervals(result)
+        self.assertEqual(p['status'],'OBSERVE')
+        self.assertEqual(bands['stop_range'],[9.4,9.45])
+        self.assertEqual(bands['take_profit_1_range'],[10.57,10.72])
+        self.assertEqual(bands['take_profit_2_range'],[11.13,11.38])
+        self.assertIn('尚无有效买点',levels_html(p,bands))
+        result['integration']['support_resistance']['context']['atr']=float('nan')
+        self.assertEqual(reference_intervals(result)['status'],'UNAVAILABLE')
     def plan_fixture(self):
         stock={'bars':[{'close':12} for _ in range(61)]}
         result={'last_price':12,'integration':{'support_resistance':{'context':{'atr':.2},'zones':[
